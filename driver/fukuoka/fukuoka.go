@@ -1,51 +1,32 @@
-package driver
+package fukuoka
 
 import (
 	"fmt"
-	"log"
-	"net/http"
+	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	. "github.com/sawasaki-narumi/bank-code-clawler/structs"
+	"github.com/sawasaki-narumi/bank-code-clawler/utils"
 
 	"github.com/PuerkitoBio/goquery"
 )
 
 type ClawlDriver struct {
-	Prefecture string
-	Url        string
-	OutputPath string
+	outputPath string
 }
 
-func Open() ClawlDriver {
+const URL = "http://www.fukuokabank.co.jp/atmsearch/?prefix="
+
+func Open(outputPath string) ClawlDriver {
 	clawler := ClawlDriver{
-		Prefecture: "fukuoka",
-		Url:        "fukuoka",
-		OutputPath: "fukuoka",
+		outputPath: outputPath,
 	}
 	return clawler
 }
 
-func (v ClawlDriver) FetchDoc(url string) (*goquery.Document, error) {
-	resp, err := http.Get(url)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != 200 {
-		log.Fatalf("status code error: %d %s", resp.StatusCode, resp.Status)
-	}
-
-	doc, err := goquery.NewDocumentFromReader(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	return doc, nil
-}
-
-func (v ClawlDriver) SaveAsCsv(filename string, branches *[]*Branch) error {
+func (v ClawlDriver) saveAsCsv(filename string, branches *[]*Branch) error {
 	file, err := os.Create(filename)
 	if err != nil {
 		return err
@@ -68,7 +49,7 @@ func (v ClawlDriver) SaveAsCsv(filename string, branches *[]*Branch) error {
 	return nil
 }
 
-func (v ClawlDriver) ScrapeBranches(doc *goquery.Document) *[]*Branch {
+func (v ClawlDriver) scrapeBranches(doc *goquery.Document) *[]*Branch {
 	branches := make([]*Branch, 0, 10)
 	doc.Find("div.table_style02_block").Each(func(i int, s *goquery.Selection) {
 		s.Find("tr").Each(func(_ int, s *goquery.Selection) {
@@ -89,4 +70,25 @@ func (v ClawlDriver) ScrapeBranches(doc *goquery.Document) *[]*Branch {
 		})
 	})
 	return &branches
+}
+
+func (v ClawlDriver) Exec() error {
+	prefixes := "あいうえおかきくけこさしすせそたちつてとなにぬねのはひふへほまみむめもやゆよらりるれろわをん"
+
+	branches := make([]*Branch, 0, 30)
+	for _, prefix := range prefixes {
+		prefix := url.QueryEscape(string(prefix))
+		url := URL + prefix
+		doc, err := utils.FetchDoc(url)
+		if err != nil {
+			return err
+		}
+		branches = append(branches, *v.scrapeBranches(doc)...)
+		time.Sleep(1500 * time.Millisecond)
+	}
+
+	if err := v.saveAsCsv(v.outputPath, &branches); err != nil {
+		return err
+	}
+	return nil
 }
