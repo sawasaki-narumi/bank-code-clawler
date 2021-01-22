@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 
-	"github.com/sawasaki-narumi/bank-code-clawler/driver/fukuoka"
+	"github.com/sawasaki-narumi/bank-code-clawler/driver/yamaguchi"
 )
 
 func displayResponse(url string) {
@@ -21,8 +21,13 @@ func displayResponse(url string) {
 }
 
 func main() {
-	fukuoka := fukuoka.Open("csv/fukuoka.csv")
-	if err := fukuoka.Exec(); err != nil {
+	//	fukuoka := fukuoka.Open("csv/fukuoka.csv")
+	yamaguchi, err := yamaguchi.Open("csv/yamaguchi.csv")
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	if err = yamaguchi.Exec(); err != nil {
 		log.Fatal(err)
 	}
 }
